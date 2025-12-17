@@ -1,7 +1,21 @@
-// Store uploaded files
+// ===== Multi-Agent System Initialization =====
+let agentSystem = null;
+
+function initializeAgentSystem() {
+    const coordinator = new CoordinatorAgent();
+    
+    // Register all agents
+    coordinator.registerAgent(new FileAnalysisAgent());
+    coordinator.registerAgent(new BatchProcessingAgent(5));
+    coordinator.registerAgent(new AggregationAgent());
+    coordinator.registerAgent(new SecurityAnalysisAgent());
+    
+    return coordinator;
+}
+
+// ===== File Management =====
 let uploadedFiles = [];
 
-// Get DOM elements
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
 const auditButton = document.getElementById('auditButton');
@@ -13,7 +27,6 @@ fileInput.addEventListener('change', (event) => {
     const files = Array.from(event.target.files);
     
     files.forEach(file => {
-        // Check if file is already uploaded
         if (!uploadedFiles.find(f => f.name === file.name && f.size === file.size)) {
             uploadedFiles.push(file);
         }
@@ -21,8 +34,6 @@ fileInput.addEventListener('change', (event) => {
     
     updateFileList();
     updateAuditButton();
-    
-    // Reset input to allow re-uploading the same file
     event.target.value = '';
 });
 
@@ -42,18 +53,16 @@ function updateFileList() {
     `).join('');
 }
 
-// Format file size to human-readable format
+// Format file size
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
-    
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Remove a file from the list
+// Remove a file
 function removeFile(index) {
     uploadedFiles.splice(index, 1);
     updateFileList();
@@ -61,92 +70,133 @@ function removeFile(index) {
     resultSection.style.display = 'none';
 }
 
-// Enable/disable audit button based on files
+// Enable/disable audit button
 function updateAuditButton() {
     auditButton.disabled = uploadedFiles.length === 0;
 }
 
-// Handle audit button click
+// ===== Audit Execution with Multi-Agent System =====
 auditButton.addEventListener('click', async () => {
     if (uploadedFiles.length === 0) return;
     
-    // Disable button and show loading state
     auditButton.disabled = true;
     auditButton.classList.add('loading');
     
-    // Simulate audit process
-    await performAudit();
-    
-    // Re-enable button and remove loading state
-    auditButton.classList.remove('loading');
-    auditButton.disabled = false;
+    try {
+        await performAuditWithAgents();
+    } catch (error) {
+        console.error('Audit failed:', error);
+        displayError(error.message);
+    } finally {
+        auditButton.classList.remove('loading');
+        auditButton.disabled = false;
+    }
 });
 
-// Simulate audit process
-async function performAudit() {
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 2000));
+async function performAuditWithAgents() {
+    // Initialize agent system
+    agentSystem = initializeAgentSystem();
     
-    // Generate mock audit results
-    const results = generateAuditResults();
+    // Run the coordinator agent with uploaded files
+    const finalReport = await agentSystem.run(uploadedFiles);
     
     // Display results
-    displayResults(results);
+    displayResults(finalReport);
 }
 
-// Generate mock audit results
-function generateAuditResults() {
-    const totalFiles = uploadedFiles.length;
-    const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
-    
-    return {
-        totalFiles,
-        totalSize,
-        fileTypes: getFileTypes(),
-        status: 'completed',
-        timestamp: new Date().toLocaleString(),
-        findings: [
-            { type: 'success', message: 'All files successfully scanned' },
-            { type: 'success', message: 'No security threats detected' },
-            { type: 'success', message: 'File integrity verified' }
-        ]
-    };
-}
+// ===== Results Display =====
+function displayResults(report) {
+    const {
+        auditId,
+        timestamp,
+        status,
+        totalExecutionTime,
+        summary,
+        agentReports,
+        findings
+    } = report;
 
-// Get unique file types
-function getFileTypes() {
-    const types = uploadedFiles.map(file => {
-        const ext = file.name.split('.').pop().toUpperCase();
-        return ext || 'Unknown';
-    });
-    
-    return [...new Set(types)];
-}
+    const findingsHTML = findings.map(finding => `
+        <p class="${finding.type}">
+            <strong>${finding.file}:</strong> ${finding.message}
+        </p>
+    `).join('');
 
-// Display audit results
-function displayResults(results) {
-    const { totalFiles, totalSize, fileTypes, timestamp, findings } = results;
-    
+    const agentExecutionHTML = Object.entries(agentReports)
+        .map(([key, agent]) => `
+            <div style="margin-bottom: 15px; padding: 10px; background: #f0f0f0; border-radius: 6px;">
+                <p><strong>${agent.name}</strong></p>
+                <p style="font-size: 0.9rem; color: #666;">
+                    Status: <span style="color: #38ef7d;">${agent.status}</span> | 
+                    Time: ${agent.executionTime}ms
+                </p>
+            </div>
+        `).join('');
+
     const resultsHTML = `
         <div>
-            <p><strong>Audit Completed:</strong> ${timestamp}</p>
-            <p><strong>Files Audited:</strong> ${totalFiles}</p>
-            <p><strong>Total Size:</strong> ${formatFileSize(totalSize)}</p>
-            <p><strong>File Types:</strong> ${fileTypes.join(', ')}</p>
-            <br>
-            <strong>Findings:</strong>
-            ${findings.map(finding => `
-                <p class="${finding.type}">• ${finding.message}</p>
-            `).join('')}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div>
+                    <p><strong>Audit ID:</strong> ${auditId}</p>
+                    <p><strong>Timestamp:</strong> ${timestamp}</p>
+                    <p><strong>Total Execution Time:</strong> ${totalExecutionTime}ms</p>
+                </div>
+                <div>
+                    <p><strong>Total Files:</strong> ${summary.totalFiles}</p>
+                    <p><strong>Total Size:</strong> ${summary.totalSize}</p>
+                    <p><strong>Risk Level:</strong> <span style="color: ${getRiskColor(summary.riskLevel)}; font-weight: bold;">${summary.riskLevel.toUpperCase()}</span></p>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;">File Types:</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    ${summary.fileTypes.map(ft => `
+                        <span style="background: #e8f4f8; padding: 6px 12px; border-radius: 4px; font-size: 0.9rem;">
+                            ${ft.type} (${ft.count})
+                        </span>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;">Agent Execution Report:</h4>
+                ${agentExecutionHTML}
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;">Security Findings:</h4>
+                ${findingsHTML}
+            </div>
         </div>
     `;
-    
+
     auditResults.innerHTML = resultsHTML;
     resultSection.style.display = 'block';
-    
-    // Smooth scroll to results
     resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Initialize
+function getRiskColor(riskLevel) {
+    const colors = {
+        'critical': '#ff4757',
+        'high': '#ffa502',
+        'medium': '#ffc107',
+        'low': '#38ef7d'
+    };
+    return colors[riskLevel.toLowerCase()] || '#999';
+}
+
+function displayError(message) {
+    const errorHTML = `
+        <div style="background: #fff5f5; border: 2px solid #ff4757; padding: 15px; border-radius: 8px;">
+            <p class="error"><strong>Error:</strong> ${message}</p>
+        </div>
+    `;
+    
+    auditResults.innerHTML = errorHTML;
+    resultSection.style.display = 'block';
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Initialize on page load
 updateAuditButton();

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Agent - System Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        h2 { color: #667eea; margin-top: 0; }
+        .test-item {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #ccc;
+            background: #f9f9f9;
+        }
+        .test-item.pass {
+            border-left-color: #38ef7d;
+            background: #f0fff4;
+        }
+        .test-item.fail {
+            border-left-color: #ff4757;
+            background: #fff5f5;
+        }
+        .test-item.running {
+            border-left-color: #667eea;
+            background: #f0f4ff;
+        }
+        .status {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .pass { color: #38ef7d; }
+        .fail { color: #ff4757; }
+        .running { color: #667eea; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #764ba2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .output {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f9f9f9;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Audit Agent - System Test Suite</h1>
+        <p>Testing the multi-agent system with simulated files...</p>
+        <button id="startBtn" onclick="runTests()">Start Test Suite</button>
+        <button id="clearBtn" onclick="clearResults()" style="background: #999;">Clear Results</button>
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div id="results"></div>
+    </div>
+
+    <!-- Load Agent System -->
+    <script src="js/agents/BaseAgent.js"></script>
+    <script src="js/agents/FileAnalysisAgent.js"></script>
+    <script src="js/agents/BatchProcessingAgent.js"></script>
+    <script src="js/agents/AggregationAgent.js"></script>
+    <script src="js/agents/SecurityAnalysisAgent.js"></script>
+    <script src="js/agents/CoordinatorAgent.js"></script>
+
+    <script>
+        let testResults = [];
+
+        function addResult(testName, passed, details = '') {
+            testResults.push({ testName, passed, details });
+            updateUI();
+        }
+
+        function updateUI() {
+            const resultsDiv = document.getElementById('results');
+            let html = '';
+            
+            let passCount = testResults.filter(r => r.passed).length;
+            let totalCount = testResults.length;
+            const percentage = totalCount > 0 ? Math.round((passCount / totalCount) * 100) : 0;
+            
+            html += `
+                <div class="test-container">
+                    <h2>Test Progress: ${passCount}/${totalCount} Passed (${percentage}%)</h2>
+                    <div class="progress">
+                        <div class="progress-bar" style="width: ${percentage}%"></div>
+                    </div>
+            `;
+
+            testResults.forEach(result => {
+                const statusClass = result.passed ? 'pass' : 'fail';
+                const statusText = result.passed ? '✓ PASS' : '✗ FAIL';
+                html += `
+                    <div class="test-item ${statusClass}">
+                        <span class="status ${statusClass}">${statusText}</span> ${result.testName}
+                        ${result.details ? `<div style="margin-top: 5px; font-size: 12px; color: #666;">${result.details}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+            document.getElementById('progressBar').style.width = percentage + '%';
+        }
+
+        function clearResults() {
+            testResults = [];
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('startBtn').disabled = false;
+        }
+
+        async function runTests() {
+            document.getElementById('startBtn').disabled = true;
+            testResults = [];
+            updateUI();
+
+            // Test 1: Agent Loading
+            addResult('All agents loaded', typeof BaseAgent !== 'undefined');
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 2: BaseAgent instantiation
+            try {
+                const baseAgent = new BaseAgent('TestAgent', 'Test');
+                addResult('BaseAgent instantiation', baseAgent.name === 'TestAgent', `Name: ${baseAgent.name}`);
+            } catch (e) {
+                addResult('BaseAgent instantiation', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 3: FileAnalysisAgent
+            try {
+                const fileAgent = new FileAnalysisAgent();
+                addResult('FileAnalysisAgent instantiation', fileAgent.name === 'FileAnalysisAgent');
+                
+                // Create mock files
+                const mockFiles = [
+                    { name: 'test.pdf', size: 1024 * 100, lastModified: Date.now() },
+                    { name: 'image.png', size: 1024 * 50, lastModified: Date.now() },
+                    { name: 'document.docx', size: 1024 * 200, lastModified: Date.now() }
+                ];
+                
+                const result = await fileAgent.run(mockFiles);
+                addResult('FileAnalysisAgent execution', 
+                    result.filesAnalyzed === 3, 
+                    `Analyzed ${result.filesAnalyzed} files`);
+            } catch (e) {
+                addResult('FileAnalysisAgent execution', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 4: BatchProcessingAgent
+            try {
+                const batchAgent = new BatchProcessingAgent(2);
+                addResult('BatchProcessingAgent instantiation', batchAgent.batchSize === 2);
+            } catch (e) {
+                addResult('BatchProcessingAgent instantiation', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 5: AggregationAgent
+            try {
+                const aggAgent = new AggregationAgent();
+                addResult('AggregationAgent instantiation', aggAgent.name === 'AggregationAgent');
+            } catch (e) {
+                addResult('AggregationAgent instantiation', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 6: SecurityAnalysisAgent
+            try {
+                const secAgent = new SecurityAnalysisAgent();
+                addResult('SecurityAnalysisAgent instantiation', secAgent.name === 'SecurityAnalysisAgent');
+            } catch (e) {
+                addResult('SecurityAnalysisAgent instantiation', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 7: CoordinatorAgent
+            try {
+                const coordinator = new CoordinatorAgent();
+                addResult('CoordinatorAgent instantiation', coordinator.name === 'CoordinatorAgent');
+            } catch (e) {
+                addResult('CoordinatorAgent instantiation', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 8: Full System Integration
+            try {
+                const coordinator = new CoordinatorAgent();
+                coordinator.registerAgent(new FileAnalysisAgent());
+                coordinator.registerAgent(new BatchProcessingAgent(5));
+                coordinator.registerAgent(new AggregationAgent());
+                coordinator.registerAgent(new SecurityAnalysisAgent());
+
+                addResult('Agent registration', coordinator.agents.length === 4, 
+                    `Registered ${coordinator.agents.length} agents`);
+
+                const mockFiles = [
+                    { name: 'file1.pdf', size: 1024 * 100, lastModified: Date.now() },
+                    { name: 'file2.docx', size: 1024 * 200, lastModified: Date.now() }
+                ];
+
+                const report = await coordinator.run(mockFiles);
+                addResult('Coordinator execution', report.auditId !== undefined, 
+                    `Audit ID: ${report.auditId}`);
+                
+                addResult('Report generation', report.summary.totalFiles === 2, 
+                    `Files analyzed: ${report.summary.totalFiles}`);
+
+                addResult('Total execution time tracking', report.totalExecutionTime > 0, 
+                    `Execution time: ${report.totalExecutionTime}ms`);
+
+                addResult('Security findings', Array.isArray(report.findings), 
+                    `Findings count: ${report.findings.length}`);
+
+            } catch (e) {
+                addResult('Full system integration', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 9: Observer Pattern
+            try {
+                const agent = new FileAnalysisAgent();
+                let notified = false;
+                agent.subscribe(() => { notified = true; });
+                
+                const mockFiles = [{ name: 'test.txt', size: 100, lastModified: Date.now() }];
+                await agent.run(mockFiles);
+                
+                addResult('Observer pattern', notified, 'Agent notified subscribers');
+            } catch (e) {
+                addResult('Observer pattern', false, `Error: ${e.message}`);
+            }
+            await new Promise(r => setTimeout(r, 100));
+
+            // Test 10: Error Handling
+            try {
+                const agent = new FileAnalysisAgent();
+                try {
+                    await agent.run(null);
+                    addResult('Error handling', false, 'Should have thrown error');
+                } catch (e) {
+                    addResult('Error handling', true, `Caught error: ${e.message.substring(0, 40)}...`);
+                }
+            } catch (e) {
+                addResult('Error handling', false, `Unexpected error: ${e.message}`);
+            }
+
+            document.getElementById('startBtn').disabled = false;
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            console.log('Test page loaded, ready to run tests');
+        });
+    </script>
+</body>
+</html>
